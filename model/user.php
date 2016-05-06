@@ -30,7 +30,7 @@ class User {
       $function_name = "get_user_by_id";
         try {
             // SQL REQUEST PART
-            $hdb = db_connect();
+            $hdb = Functions::db_connect();
             $query = "SELECT * FROM ". self::$table ." WHERE _id = $1";
             $statement = pg_prepare($hdb, $function_name, $query);
             $statement = pg_execute($hdb, $function_name, array($id));
@@ -39,11 +39,9 @@ class User {
             $num_rows = pg_num_rows($statement);
             if($num_rows == 0)
             {
-                echo "User does not exist";
                 return null;
             }
             else if($num_rows > 1) {
-                echo "There is many users with this id, Contact the Technical Support";
                 return null;
             }
             else {
@@ -65,28 +63,27 @@ class User {
     /*
     * Used for Authentication
     */
-    public static function get_pass_by_email($email) {
-        $function_name = "get_pass_by_email";
+    public static function get_user_by_email($email) {
+        $function_name = "get_user_by_email";
         try {
-            $hdb = db_connect();
-            $query = "SELECT password FROM " . self::$table . " WHERE email = $1";
+            $hdb = Functions::db_connect();
+            $query = "SELECT * FROM " . self::$table . " WHERE email = $1";
             $statement = pg_prepare($hdb, $function_name, $query);
             $statement = pg_execute($hdb, $function_name, array($email));
+            pg_query("deallocate " . $function_name);
 
             $num_rows = pg_num_rows($statement);
             if($num_rows == 0)
             {
-                echo "User Does not Exist";
                 return null;
             }
             else if ($num_rows > 1)
             {
-                echo "There is many user with this email : " . $num_rows;
                 return null;
             }
             else {
                 $result = pg_fetch_object($statement);
-                return $result->password;
+                return $result;
             }
 
             // Close db handle
@@ -103,20 +100,23 @@ class User {
     public static function email_free($email) {
       $function_name = "email_free";
       try {
-          $hdb = db_connect();
+          $hdb = Functions::db_connect();
           $query = "SELECT password FROM " . self::$table . " WHERE email = $1";
           $statement = pg_prepare($hdb, $function_name, $query);
           $statement = pg_execute($hdb, $function_name, array($email));
+          pg_query("deallocate " . $function_name);
 
           $num_rows = pg_num_rows($statement);
           if($num_rows == 0)
           {
-              echo "This email is free";
               return true;
           }
           else {
               return false;
           }
+      } catch (Exception $e) {
+          die("Internal Erreur");
+      }
     }
     /*
     * Create new User
@@ -141,7 +141,7 @@ class User {
    }
 
     /*
-    * Function to fill the User object
+    * function to fill the User object
     */
     public function wrap($user) {
         $this->_id         = $user->_id;
@@ -162,10 +162,12 @@ class User {
         if ($this->_id == -1 || self::get_user_by_id($this->_id) == null)
         {
             try {
-                $hdb = db_connect();
+                $hdb = Functions::db_connect();
                 $query = "INSERT INTO " . self::$table . " (email, password, first_name, last_name, photo) VALUES ($1, $2, $3, $4, $5)";
                 $statement = pg_prepare($hdb, $function_name, $query);
                 $statement = pg_execute($hdb, $function_name, $this->to_sql_array());
+                pg_query("deallocate " . $function_name);
+
             } catch(Exception $e) {
                 die("Internal Erreur");
             }
@@ -174,10 +176,12 @@ class User {
         // if the user already exist we update it
         else {
             try {
-                $hdb = db_connect();
+                $hdb = Functions::db_connect();
                 $query = "UPDATE " . self::$table . " SET (email, password, first_name, last_name, photo) = ($1, $2, $3, $4, $5)" . " WHERE _id = " . $this->_id;
                 $statement = pg_prepare($hdb, $function_name, $query);
                 $statement = pg_execute($hdb, $function_name, $this->to_sql_array());
+                pg_query("deallocate " . $function_name);
+
             } catch(Exception $e) {
                 die("Internal Erreur");
             }
@@ -193,21 +197,60 @@ class User {
       // there is many user or the user did not exist
       if ($this->_id == -1 || self::get_user_by_id($this->_id) == null)
       {
-          echo "We can't delete a user that not exist !";
           return false;
       }
 
       // if the user already exist we delete it
       else {
           try {
-              $hdb = db_connect();
+              $hdb = Functions::db_connect();
               $query = "DELETE FROM " . self::$table . " WHERE _id = " . $this->_id;
               $statement = pg_prepare($hdb, $function_name, $query);
               $statement = pg_execute($hdb, $function_name, array());
+              pg_query("deallocate " . $function_name);
+
           } catch(Exception $e) {
               die("Internal Erreur");
           }
       }
+    }
+
+    /*
+    *
+    */
+    public static function get_token($id) {
+        $function_name = "get_token";
+        try {
+            $hdb = Functions::db_connect();
+            $query = "SELECT access_token FROM " . self::$table . " WHERE _id = $1";
+            $statement = pg_prepare($hdb, $function_name, $query);
+            $statement = pg_execute($hdb, $function_name, array($id));
+            pg_query("deallocate " . $function_name);
+
+            $result = pg_fetch_object($statement);
+
+            return $result->access_token;
+
+        } catch(Exception $e) {
+            die("Internal Erreur");
+        }
+    }
+
+    /*
+    *
+    */
+    public static function set_token($id, $token) {
+        $function_name = "set_token";
+        try {
+            $hdb = Functions::db_connect();
+            $query = "UPDATE " . self::$table . " SET access_token = $1" . " WHERE _id = $2";
+            $statement = pg_prepare($hdb, $function_name, $query);
+            $statement = pg_execute($hdb, $function_name, array($token, $id));
+            pg_query("deallocate " . $function_name);
+
+        } catch(Exception $e) {
+            die("Internal Erreur");
+        }
     }
 
     /*
